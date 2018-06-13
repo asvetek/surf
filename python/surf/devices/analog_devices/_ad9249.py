@@ -324,7 +324,7 @@ class Ad9249ReadoutGroup(pr.Device):
             freeze = isinstance(variable, list) and any(v.name.startswith('AdcChannel') for v in variable)
             if freeze:
                 self.FreezeDebug(1)
-            for b in self._getBlocks(variable)
+            for b in self._getBlocks(variable):
                 b.startTransaction(rim.Read, checkEach)
             if freeze:
                 self.FreezeDebug(0)
