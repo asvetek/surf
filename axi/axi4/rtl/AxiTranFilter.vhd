@@ -36,14 +36,14 @@ entity AxiTranFilter is
       -- Slaves
       sAxiReadMaster  : in AxiReadMasterType;
       sAxiReadSlave   : out AxiReadSlaveType;
-      sAxiWriteMaster : in AxiReadMasterType;
-      sAxiWriteSlave  : out AxiReadSlaveType;
+      sAxiWriteMaster : in AxiWriteMasterType;
+      sAxiWriteSlave  : out AxiWriteSlaveType;
 
       -- Master
       mAxiReadMaster  : out AxiReadMasterType;
       mAxiReadSlave   : in AxiReadSlaveType;
-      mAxiWriteMaster : out AxiReadMasterType;
-      mAxiWriteSlave  : in AxiReadSlaveType
+      mAxiWriteMaster : out AxiWriteMasterType;
+      mAxiWriteSlave  : in AxiWriteSlaveType
       );
 end AxiTranFilter;
 
@@ -89,9 +89,9 @@ begin
 
       -- Block transaction starts by default
       v.readMaster.arvalid  := '0';
-      v.WriteMaster.arvalid := '0';
+      v.WriteMaster.awvalid := '0';
       v.readSlave.arready   := '0';
-      v.WriteSlave.arready  := '0';
+      v.WriteSlave.awready  := '0';
 
       -- State machine
       case r.state is
@@ -109,7 +109,7 @@ begin
             v.writeMaster.awvalid := sAxiWriteMaster.awvalid;
             v.writeSlave.awready  := mAxiWriteSlave.awready;
 
-            if sAxiWriteMaster.awvalid = '1' and := mAxiWriteSlave.awready = '1' then
+            if sAxiWriteMaster.awvalid = '1' and mAxiWriteSlave.awready = '1' then
                v.state := S_WWAIT_C;
             end if;
 
@@ -117,8 +117,8 @@ begin
             v.readMaster.arvalid := sAxiReadMaster.arvalid;
             v.readSlave.arready  := mAxiReadSlave.arready;
 
-            if sAxiReadMaster.arvalid = '1' and := mAxiReadSlave.arready = '1' then
-               v.state := S_WWAIT_C;
+            if sAxiReadMaster.arvalid = '1' and mAxiReadSlave.arready = '1' then
+               v.state := S_RWAIT_C;
             end if;
 
          when S_WWAIT_C =>
