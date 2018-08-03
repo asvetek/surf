@@ -184,7 +184,6 @@ begin
       generic map (
          TPD_G           => TPD_G,
          PROTOCOL_SIZE_G => (PROTOCOL_SIZE_G+1),
-         PROTOCOL_G      => PROTOCOL_C,
          TTL_G           => TTL_G,
          VLAN_G          => VLAN_G)
       port map (

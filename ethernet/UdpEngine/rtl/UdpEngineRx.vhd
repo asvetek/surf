@@ -2,7 +2,7 @@
 -- File       : UdpEngineRx.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-08-20
--- Last update: 2017-10-18
+-- Last update: 2018-08-03
 -------------------------------------------------------------------------------
 -- Description: UDP RX Engine Module
 -- Note: UDP checksum checked in EthMac core
@@ -48,6 +48,7 @@ entity UdpEngineRx is
       ibUdpMaster      : in  AxiStreamMasterType;
       ibUdpSlave       : out AxiStreamSlaveType;
       -- Interface to UDP Server engine(s)
+      serverRemoteProt : out Slv8Array(SERVER_SIZE_G-1 downto 0);
       serverRemotePort : out Slv16Array(SERVER_SIZE_G-1 downto 0);
       serverRemoteIp   : out Slv32Array(SERVER_SIZE_G-1 downto 0);
       serverRemoteMac  : out Slv48Array(SERVER_SIZE_G-1 downto 0);
@@ -83,6 +84,7 @@ architecture rtl of UdpEngineRx is
       LAST_S);
 
    type RegType is record
+      serverRemoteProt : Slv8Array(SERVER_SIZE_G-1 downto 0);
       serverRemotePort : Slv16Array(SERVER_SIZE_G-1 downto 0);
       serverRemoteIp   : Slv32Array(SERVER_SIZE_G-1 downto 0);
       serverRemoteMac  : Slv48Array(SERVER_SIZE_G-1 downto 0);
@@ -99,6 +101,7 @@ architecture rtl of UdpEngineRx is
       state            : StateType;
    end record RegType;
    constant REG_INIT_C : RegType := (
+      serverRemoteProt => (others => UDP_C),
       serverRemotePort => (others => (others => '0')),
       serverRemoteIp   => (others => (others => '0')),
       serverRemoteMac  => (others => (others => '0')),
@@ -220,6 +223,7 @@ begin
                         if (v.route = NULL_S) and (rxMaster.tData(63 downto 48) = SERVER_PORTS_C(i)) then
                            v.route               := SERVER_S;
                            v.serverMaster.tDest  := toSlv(i, 8);
+                           v.serverRemoteProt(i) := rxMaster.tData(15 downto 8);
                            v.serverRemotePort(i) := rxMaster.tData(47 downto 32);
                            v.serverRemoteIp(i)   := r.tData(95 downto 64);
                            v.serverRemoteMac(i)  := r.tData(47 downto 0);
@@ -459,7 +463,7 @@ begin
             end case;
       ----------------------------------------------------------------------
       end case;
-      
+
       -- Combinatorial outputs before the reset
       rxSlave <= v.rxSlave;
 
@@ -472,6 +476,7 @@ begin
       rin <= v;
 
       -- Registered Outputs  
+      serverRemoteProt <= r.serverRemoteProt;
       serverRemotePort <= r.serverRemotePort;
       serverRemoteIp   <= r.serverRemoteIp;
       serverRemoteMac  <= r.serverRemoteMac;

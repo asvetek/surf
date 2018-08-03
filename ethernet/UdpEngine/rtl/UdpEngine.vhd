@@ -2,7 +2,7 @@
 -- File       : UdpEngine.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-08-20
--- Last update: 2017-10-18
+-- Last update: 2018-08-03
 -------------------------------------------------------------------------------
 -- Description: Top-Level UDP/DHCP Module
 -------------------------------------------------------------------------------
@@ -20,6 +20,7 @@ use ieee.std_logic_1164.all;
 
 use work.StdRtlPkg.all;
 use work.AxiStreamPkg.all;
+use work.EthMacPkg.all;
 
 entity UdpEngine is
    generic (
@@ -77,6 +78,7 @@ architecture mapping of UdpEngine is
    signal clientRemoteDet : slv(CLIENT_SIZE_G-1 downto 0);
    signal clientRemoteMac : Slv48Array(CLIENT_SIZE_G-1 downto 0);
 
+   signal remoteProt      : Slv8Array(SERVER_SIZE_G-1 downto 0);
    signal remotePort      : Slv16Array(SERVER_SIZE_G-1 downto 0);
    signal remoteIp        : Slv32Array(SERVER_SIZE_G-1 downto 0);
    signal serverRemoteMac : Slv48Array(SERVER_SIZE_G-1 downto 0);
@@ -119,6 +121,7 @@ begin
          ibUdpMaster      => ibUdpMaster,
          ibUdpSlave       => ibUdpSlave,
          -- Interface to UDP Server engine(s)
+         serverRemoteProt => remoteProt,
          serverRemotePort => remotePort,
          serverRemoteIp   => remoteIp,
          serverRemoteMac  => serverRemoteMac,
@@ -181,6 +184,7 @@ begin
             obUdpSlave   => obUdpSlaves(0),
             -- Interface to User Application
             localIp      => localIp,
+            remoteProt   => remoteProt,
             remotePort   => remotePort,
             remoteIp     => remoteIp,
             remoteMac    => serverRemoteMac,
@@ -230,6 +234,7 @@ begin
             obUdpSlave  => obUdpSlaves(1),
             -- Interface to User Application
             localIp     => localIp,
+            remoteProt  => (others => UDP_C),
             remotePort  => clientRemotePort,
             remoteIp    => clientRemoteIp,
             remoteMac   => clientRemoteMac,

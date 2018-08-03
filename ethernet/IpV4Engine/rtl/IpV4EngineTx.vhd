@@ -2,7 +2,7 @@
 -- File       : IpV4EngineTx.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-08-12
--- Last update: 2016-09-16
+-- Last update: 2018-08-03
 -------------------------------------------------------------------------------
 -- Description: IPv4 TX Engine Module
 -- Note: IPv4 checksum checked in EthMac core
@@ -30,9 +30,8 @@ entity IpV4EngineTx is
    generic (
       TPD_G           : time            := 1 ns;
       PROTOCOL_SIZE_G : positive        := 1;
-      PROTOCOL_G      : Slv8Array       := (0 => UDP_C);
       TTL_G           : slv(7 downto 0) := x"20";
-      VLAN_G          : boolean         := false);       
+      VLAN_G          : boolean         := false);
    port (
       -- Local Configurations
       localMac          : in  slv(47 downto 0);  --  big-Endian configuration 
@@ -57,7 +56,7 @@ architecture rtl of IpV4EngineTx is
       IPV4_HDR1_S,
       IPV4_HDR2_S,
       MOVE_S,
-      LAST_S); 
+      LAST_S);
 
    type RegType is record
       eofe     : sl;
@@ -77,7 +76,7 @@ architecture rtl of IpV4EngineTx is
       id       => (others => '0'),
       rxSlave  => AXI_STREAM_SLAVE_INIT_C,
       txMaster => AXI_STREAM_MASTER_INIT_C,
-      state    => IDLE_S);      
+      state    => IDLE_S);
 
    signal r   : RegType := REG_INIT_C;
    signal rin : RegType;
@@ -110,7 +109,7 @@ begin
          sAxisSlaves  => obProtocolSlaves,
          -- Masters
          mAxisMaster  => rxMaster,
-         mAxisSlave   => rxSlave);   
+         mAxisSlave   => rxSlave);
 
    comb : process (localMac, r, rst, rxMaster, txSlave) is
       variable v : RegType;
@@ -174,20 +173,22 @@ begin
             end if;
          ----------------------------------------------------------------------
          when IPV4_HDR0_S =>
-            -- Check for data
-            if (v.txMaster.tValid = '0') then
+            -- Check if ready to move data
+            if (rxMaster.tValid = '1') and (v.txMaster.tValid = '0') then
+               -- Hold off the tReady until next state (only partially using tData in this state)
+               v.rxSlave.tReady  := '0';
                -- Send the IPV4 header
                v.txMaster.tValid := '1';
                -- Check for non-VLAN
                if (VLAN_G = false) then
                   v.txMaster.tData(7 downto 0)     := x"00";  -- IPV4_Length(15 downto 8) Note: Calculated in EthMac core 
                   v.txMaster.tData(15 downto 8)    := x"00";  -- IPV4_Length(7 downto 0)  Note: Calculated in EthMac core 
-                  v.txMaster.tData(23 downto 16)   := r.id(15 downto 8);     -- IPV4_ID(15 downto 8)
-                  v.txMaster.tData(31 downto 24)   := r.id(7 downto 0);      -- IPV4_ID(7 downto 0)
+                  v.txMaster.tData(23 downto 16)   := r.id(15 downto 8);  -- IPV4_ID(15 downto 8)
+                  v.txMaster.tData(31 downto 24)   := r.id(7 downto 0);  -- IPV4_ID(7 downto 0)
                   v.txMaster.tData(39 downto 32)   := x"40";  -- Flags(2 downto 0) =  Don't Fragment (DF) and Fragment_Offsets(12 downto 8) = 0x0
                   v.txMaster.tData(47 downto 40)   := x"00";  -- Fragment_Offsets(7 downto 0) = 0x0
                   v.txMaster.tData(55 downto 48)   := TTL_G;  -- Time-To-Live (number of hops before packet is discarded)
-                  v.txMaster.tData(63 downto 56)   := PROTOCOL_G(conv_integer(r.tDest));  -- Protocol
+                  v.txMaster.tData(63 downto 56)   := rxMaster.tData(15 downto 8);  -- Protocol
                   v.txMaster.tData(71 downto 64)   := x"00";  -- IPV4_Checksum(15 downto 8)  Note: Filled in next state
                   v.txMaster.tData(79 downto 72)   := x"00";  -- IPV4_Checksum(7 downto 0)   Note: Filled in next state
                   v.txMaster.tData(111 downto 80)  := r.tData(31 downto 0);  -- Source IP Address(31 downto 0)
@@ -198,12 +199,12 @@ begin
                   v.txMaster.tData(31 downto 24)   := x"00";  -- DSCP and ECN
                   v.txMaster.tData(39 downto 32)   := x"00";  -- IPV4_Length(15 downto 8) Note: Calculated in EthMac core 
                   v.txMaster.tData(47 downto 40)   := x"00";  -- IPV4_Length(7 downto 0)  Note: Calculated in EthMac core 
-                  v.txMaster.tData(55 downto 48)   := r.id(15 downto 8);     -- IPV4_ID(15 downto 8)
-                  v.txMaster.tData(63 downto 56)   := r.id(7 downto 0);      -- IPV4_ID(7 downto 0)
+                  v.txMaster.tData(55 downto 48)   := r.id(15 downto 8);  -- IPV4_ID(15 downto 8)
+                  v.txMaster.tData(63 downto 56)   := r.id(7 downto 0);  -- IPV4_ID(7 downto 0)
                   v.txMaster.tData(71 downto 64)   := x"40";  -- Flags(2 downto 0) =  Don't Fragment (DF) and Fragment_Offsets(12 downto 8) = 0x0
                   v.txMaster.tData(79 downto 72)   := x"00";  -- Fragment_Offsets(7 downto 0) = 0x0
                   v.txMaster.tData(87 downto 80)   := TTL_G;  -- Time-To-Live (number of hops before packet is discarded)
-                  v.txMaster.tData(95 downto 88)   := PROTOCOL_G(conv_integer(r.tDest));  -- Protocol
+                  v.txMaster.tData(95 downto 88)   := rxMaster.tData(15 downto 8);  -- Protocol
                   v.txMaster.tData(103 downto 96)  := x"00";  -- IPV4_Checksum(15 downto 8)  Note: Calculated in EthMac core 
                   v.txMaster.tData(111 downto 104) := x"00";  -- IPV4_Checksum(7 downto 0)   Note: Calculated in EthMac core 
                   v.txMaster.tData(127 downto 112) := r.tData(15 downto 0);  -- Source IP Address(31 downto 16)
@@ -388,7 +389,7 @@ begin
             end if;
       ----------------------------------------------------------------------
       end case;
-      
+
       -- Combinatorial outputs before the reset
       rxSlave <= v.rxSlave;
 
@@ -422,7 +423,7 @@ begin
          sAxisMaster => txMaster,
          sAxisSlave  => txSlave,
          mAxisMaster => mAxisMaster,
-         mAxisSlave  => mAxisSlave);      
+         mAxisSlave  => mAxisSlave);
 
    U_DeMux : entity work.AxiStreamDeMux
       generic map (
@@ -440,6 +441,6 @@ begin
          mAxisMasters(0) => obIpv4Master,
          mAxisMasters(1) => localhostMaster,
          mAxisSlaves(0)  => obIpv4Slave,
-         mAxisSlaves(1)  => localhostSlave);            
+         mAxisSlaves(1)  => localhostSlave);
 
 end rtl;

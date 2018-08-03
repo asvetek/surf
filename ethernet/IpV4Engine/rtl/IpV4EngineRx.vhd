@@ -2,7 +2,7 @@
 -- File       : IpV4EngineRx.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-08-12
--- Last update: 2016-09-16
+-- Last update: 2018-08-03
 -------------------------------------------------------------------------------
 -- Description: IPv4 RX Engine Module
 -- Note: IPv4 checksum checked in EthMac core
@@ -32,7 +32,7 @@ entity IpV4EngineRx is
       SIM_ERROR_HALT_G : boolean   := false;
       PROTOCOL_SIZE_G  : positive  := 1;
       PROTOCOL_G       : Slv8Array := (0 => UDP_C);
-      VLAN_G           : boolean   := false);       
+      VLAN_G           : boolean   := false);
    port (
       -- Interface to Ethernet Frame MUX/DEMUX 
       ibIpv4Master      : in  AxiStreamMasterType;
@@ -55,7 +55,7 @@ architecture rtl of IpV4EngineRx is
       IPV4_HDR1_S,
       IPV4_HDR2_S,
       MOVE_S,
-      LAST_S); 
+      LAST_S);
 
    type RegType is record
       tLast    : sl;
@@ -77,7 +77,7 @@ architecture rtl of IpV4EngineRx is
       tData    => (others => '0'),
       rxSlave  => AXI_STREAM_SLAVE_INIT_C,
       txMaster => AXI_STREAM_MASTER_INIT_C,
-      state    => IDLE_S);      
+      state    => IDLE_S);
 
    signal r   : RegType := REG_INIT_C;
    signal rin : RegType;
@@ -175,7 +175,7 @@ begin
                v.state := IDLE_S;
                -- Loop through the protocol buses
                for i in (PROTOCOL_SIZE_G-1) downto 0 loop
-                  if (v.protocol = PROTOCOL_G(i)) then
+                  if (v.protocol = PROTOCOL_G(i)) or ((PROTOCOL_G(i) = UDP_C) and (v.protocol = RUDP_C))then
                      -- Latch the protocol bus pointer
                      v.txMaster.tDest := toSlv(i, 8);
                      -- Next state if protocol not detected
@@ -383,6 +383,6 @@ begin
          sAxisSlave   => txSlave,
          -- Masters
          mAxisMasters => ibProtocolMasters,
-         mAxisSlaves  => ibProtocolSlaves);     
+         mAxisSlaves  => ibProtocolSlaves);
 
 end rtl;

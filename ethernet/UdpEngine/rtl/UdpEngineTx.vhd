@@ -2,7 +2,7 @@
 -- File       : UdpEngineTx.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2015-08-20
--- Last update: 2016-09-16
+-- Last update: 2018-08-03
 -------------------------------------------------------------------------------
 -- Description: UDP TX Engine Module
 -- Note: UDP checksum checked in EthMac core
@@ -41,6 +41,7 @@ entity UdpEngineTx is
       localIp      : in  slv(31 downto 0);
       remotePort   : in  Slv16Array(SIZE_G-1 downto 0);
       remoteIp     : in  Slv32Array(SIZE_G-1 downto 0);
+      remoteProt   : in  Slv8Array(SIZE_G-1 downto 0);
       remoteMac    : in  Slv48Array(SIZE_G-1 downto 0);
       ibMasters    : in  AxiStreamMasterArray(SIZE_G-1 downto 0);
       ibSlaves     : out AxiStreamSlaveArray(SIZE_G-1 downto 0);
@@ -62,7 +63,7 @@ architecture rtl of UdpEngineTx is
       HDR_S,
       DHCP_BUFFER_S,
       BUFFER_S,
-      LAST_S); 
+      LAST_S);
 
    type RegType is record
       tKeep       : slv(15 downto 0);
@@ -86,7 +87,7 @@ architecture rtl of UdpEngineTx is
       obDhcpSlave => AXI_STREAM_SLAVE_INIT_C,
       ibSlaves    => (others => AXI_STREAM_SLAVE_INIT_C),
       txMaster    => AXI_STREAM_MASTER_INIT_C,
-      state       => IDLE_S);      
+      state       => IDLE_S);
 
    signal r   : RegType := REG_INIT_C;
    signal rin : RegType;
@@ -96,11 +97,11 @@ architecture rtl of UdpEngineTx is
 
    -- attribute dont_touch             : string;
    -- attribute dont_touch of r        : signal is "TRUE";
-   
+
 begin
 
-   comb : process (ibMasters, localIp, obDhcpMaster, r, remoteIp, remoteMac, remotePort, rst,
-                   txSlave) is
+   comb : process (ibMasters, localIp, obDhcpMaster, r, remoteIp, remoteMac,
+                   remotePort, remoteProt, rst, txSlave) is
       variable v : RegType;
       variable i : natural;
    begin
@@ -136,7 +137,7 @@ begin
                   -- Write the first header
                   v.txMaster.tValid               := '1';
                   v.txMaster.tData(47 downto 0)   := (others => '1');  -- Destination MAC address
-                  v.txMaster.tData(63 downto 48)  := x"0000";          -- All 0s
+                  v.txMaster.tData(63 downto 48)  := x"0000";  -- All 0s
                   v.txMaster.tData(95 downto 64)  := (others => '0');  -- Source IP address
                   v.txMaster.tData(127 downto 96) := (others => '1');  -- Destination IP address               
                   ssiSetUserSof(EMAC_AXIS_CONFIG_C, v.txMaster, '1');
@@ -155,8 +156,8 @@ begin
                   -- Write the first header
                   v.txMaster.tValid               := '1';
                   v.txMaster.tData(47 downto 0)   := remoteMac(r.index);  -- Destination MAC address
-                  v.txMaster.tData(63 downto 48)  := x"0000";          -- All 0s
-                  v.txMaster.tData(95 downto 64)  := localIp;          -- Source IP address
+                  v.txMaster.tData(63 downto 48)  := x"0000";  -- All 0s
+                  v.txMaster.tData(95 downto 64)  := localIp;  -- Source IP address
                   v.txMaster.tData(127 downto 96) := remoteIp(r.index);  -- Destination IP address               
                   ssiSetUserSof(EMAC_AXIS_CONFIG_C, v.txMaster, '1');
                   -- Next state
@@ -190,11 +191,11 @@ begin
                v.obDhcpSlave.tReady            := '1';
                -- Write the Second header
                v.txMaster.tValid               := '1';
-               v.txMaster.tData(7 downto 0)    := x"00";    -- All 0s
-               v.txMaster.tData(15 downto 8)   := UDP_C;    -- Protocol Type = UDP
+               v.txMaster.tData(7 downto 0)    := x"00";  -- All 0s
+               v.txMaster.tData(15 downto 8)   := UDP_C;  -- Protocol Type = UDP
                v.txMaster.tData(31 downto 16)  := x"0000";  -- IPv4 Pseudo header length = Calculated in EthMac core
-               v.txMaster.tData(47 downto 32)  := DHCP_CPORT;          -- Source port
-               v.txMaster.tData(63 downto 48)  := DHCP_SPORT;          -- Destination port
+               v.txMaster.tData(47 downto 32)  := DHCP_CPORT;  -- Source port
+               v.txMaster.tData(63 downto 48)  := DHCP_SPORT;  -- Destination port
                v.txMaster.tData(79 downto 64)  := x"0000";  -- UDP length = Calculated in EthMac core
                v.txMaster.tData(95 downto 80)  := x"0000";  -- UDP checksum  = Calculated in EthMac core              
                v.txMaster.tData(127 downto 96) := obDhcpMaster.tData(31 downto 0);  -- UDP Datagram     
@@ -233,10 +234,10 @@ begin
                v.ibSlaves(r.chPntr).tReady     := '1';
                -- Write the Second header
                v.txMaster.tValid               := '1';
-               v.txMaster.tData(7 downto 0)    := x"00";    -- All 0s
-               v.txMaster.tData(15 downto 8)   := UDP_C;    -- Protocol Type = UDP
+               v.txMaster.tData(7 downto 0)    := x"00";  -- All 0s
+               v.txMaster.tData(15 downto 8)   := remoteProt(r.chPntr);  -- Protocol Type = UDP or RUDP
                v.txMaster.tData(31 downto 16)  := x"0000";  -- IPv4 Pseudo header length = Calculated in EthMac core
-               v.txMaster.tData(47 downto 32)  := PORT_C(r.chPntr);    -- Source port
+               v.txMaster.tData(47 downto 32)  := PORT_C(r.chPntr);  -- Source port
                v.txMaster.tData(63 downto 48)  := remotePort(r.chPntr);  -- Destination port
                v.txMaster.tData(79 downto 64)  := x"0000";  -- UDP length = Calculated in EthMac core
                v.txMaster.tData(95 downto 80)  := x"0000";  -- UDP checksum  = Calculated in EthMac core              
@@ -349,7 +350,7 @@ begin
             end if;
       ----------------------------------------------------------------------
       end case;
-      
+
       -- Combinatorial outputs before the reset
       ibSlaves    <= v.ibSlaves;
       obDhcpSlave <= v.obDhcpSlave;
@@ -364,7 +365,7 @@ begin
 
       -- Registered Outputs   
       txMaster <= r.txMaster;
-      
+
    end process comb;
 
    seq : process (clk) is
@@ -384,6 +385,6 @@ begin
          sAxisMaster => txMaster,
          sAxisSlave  => txSlave,
          mAxisMaster => obUdpMaster,
-         mAxisSlave  => obUdpSlave);    
+         mAxisSlave  => obUdpSlave);
 
 end rtl;
